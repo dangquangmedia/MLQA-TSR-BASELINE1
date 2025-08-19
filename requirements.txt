@@ -1,0 +1,8 @@
+numpy
+pandas
+scikit-learn
+tqdm
+nltk
+Pillow
+faiss-cpu; platform_system != "Windows"
+rank-bm25
