@@ -1,0 +1,63 @@
+name: VLSP-MLQA-TSR CI
+
+on:
+  workflow_dispatch: {}   # chạy thủ công
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install gh CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gh
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python - <<'PY'
+          import nltk
+          nltk.download('punkt', quiet=True)
+          PY
+
+      - name: Prepare data directory
+        run: mkdir -p data
+
+      - name: Download dataset from Release (tag=dataset, asset=vlsp_dataset.zip)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download dataset \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "vlsp_dataset.zip" \
+            --dir data
+          ls -lah data
+
+      - name: Eval on train (TF-IDF)
+        run: |
+          python -m src.main --dataset_zip 'data/vlsp_dataset.zip' --eval_train --retriever tfidf --topk 5
+
+      - name: Make submission (TF-IDF)
+        run: |
+          python -m src.main --dataset_zip 'data/vlsp_dataset.zip' --make_submission --retriever tfidf --topk 5
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlqa-outputs
+          path: |
+            runs/task1_train_f2.json
+            runs/task2_train_acc.json
+            runs/submission.zip
